@@ -1127,6 +1127,7 @@ class Expr(Basic, EvalfMixin):
 
         from .numbers import Number, NumberSymbol
 
+
         if order is None and self.is_Add:
             # Spot the special case of Add(Number, Mul(Number, expr)) with the
             # first number positive and the second number negative
@@ -1146,7 +1147,9 @@ class Expr(Basic, EvalfMixin):
         terms, gens = self.as_terms()
 
         if not any(term.is_Order for term, _ in terms):
-            ordered = sorted(terms, key=key, reverse=reverse)
+            # ordered = sorted(terms, key=key, reverse=reverse)
+            # Do nothing, to keep args in their original order. -sbs 
+            ordered = terms
         else:
             _terms, _order = [], []
 

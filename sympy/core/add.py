@@ -35,7 +35,9 @@ def _could_extract_minus_sign(expr):
 
 def _addsort(args):
     # in-place sorting of args
-    args.sort(key=_args_sortkey)
+    # Do nothing, to keep args in their original order. -sbs
+    # args.sort(key=_args_sortkey)
+    None
 
 
 def _unevaluated_Add(*args):

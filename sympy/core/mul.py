@@ -32,8 +32,10 @@ class NC_Marker:
 _args_sortkey = cmp_to_key(Basic.compare)
 def _mulsort(args):
     # in-place sorting of args
-    args.sort(key=_args_sortkey)
+    # args.sort(key=_args_sortkey)
 
+    # Do nothing, to keep args in their original order. -sbs
+    None
 
 def _unevaluated_Mul(*args):
     """Return a well-formed unevaluated Mul: Numbers are collected and

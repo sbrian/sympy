@@ -119,8 +119,10 @@ class Commutator(Expr):
 
         # Canonical ordering of arguments
         # The Commutator [A, B] is in canonical form if A < B.
-        if a.compare(b) == 1:
-            return S.NegativeOne*cls(b, a)
+        #
+        # Do nothing, to keep args in their original order. -sbs
+        # if a.compare(b) == 1:
+        #    return S.NegativeOne*cls(b, a)
 
     def _expand_pow(self, A, B, sign):
         exp = A.exp

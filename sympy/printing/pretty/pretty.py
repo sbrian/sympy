@@ -1983,10 +1983,14 @@ class PrettyPrinter(Printer):
         a = []  # items in the numerator
         b = []  # items that are in the denominator (if any)
 
-        if self.order not in ('old', 'none'):
-            args = product.as_ordered_factors()
-        else:
-            args = list(product.args)
+        # if self.order not in ('old', 'none'):
+        #    args = product.as_ordered_factors() 
+        # else:
+        #    args = list(product.args)
+        # 
+        # Do nothing, to keep args in their original order. -sbs
+        # 
+        args = list(product.args)
 
         # If quantities are present append them at the back
         args = sorted(args, key=lambda x: isinstance(x, Quantity) or
