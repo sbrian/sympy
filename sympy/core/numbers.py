@@ -19,7 +19,8 @@ from .cache import cacheit, clear_cache
 from .decorators import _sympifyit
 from .logic import fuzzy_not
 from .kind import NumberKind
-from sympy.external.gmpy import SYMPY_INTS, HAS_GMPY, gmpy
+from sympy.external.gmpy import (SYMPY_INTS, gmpy, flint,
+                                 gcd as number_gcd, lcm as number_lcm)
 from sympy.multipledispatch import dispatch
 import mpmath
 import mpmath.libmp as mlib
@@ -235,6 +236,7 @@ def igcd(*args):
 
     The algorithm is based on the well known Euclid's algorithm [1]_. To
     improve speed, ``igcd()`` has its own caching mechanism.
+    If you do not need the cache mechanism, using ``sympy.external.gmpy.gcd``.
 
     Examples
     ========
@@ -254,17 +256,7 @@ def igcd(*args):
     if len(args) < 2:
         raise TypeError(
             'igcd() takes at least 2 arguments (%s given)' % len(args))
-    args_temp = [abs(as_int(i)) for i in args]
-    if 1 in args_temp:
-        return 1
-    a = args_temp.pop()
-    if HAS_GMPY: # Using gmpy if present to speed up.
-        for b in args_temp:
-            a = gmpy.gcd(a, b) if b else a
-        return as_int(a)
-    for b in args_temp:
-        a = math.gcd(a, b)
-    return a
+    return int(number_gcd(*map(as_int, args)))
 
 
 igcd2 = math.gcd
@@ -434,12 +426,7 @@ def ilcm(*args):
     if len(args) < 2:
         raise TypeError(
             'ilcm() takes at least 2 arguments (%s given)' % len(args))
-    if 0 in args:
-        return 0
-    a = args[0]
-    for b in args[1:]:
-        a = a // igcd(a, b) * b # since gcd(a,b) | a
-    return a
+    return int(number_lcm(*map(as_int, args)))
 
 
 def igcdex(a, b):
@@ -814,7 +801,7 @@ class Number(AtomicExpr):
     def as_coeff_mul(self, *deps, rational=True, **kwargs):
         # a -> c*t
         if self.is_Rational or not rational:
-            return self, tuple()
+            return self, ()
         elif self.is_negative:
             return S.NegativeOne, (-self,)
         return S.One, (self,)
@@ -822,14 +809,14 @@ class Number(AtomicExpr):
     def as_coeff_add(self, *deps):
         # a -> c + t
         if self.is_Rational:
-            return self, tuple()
+            return self, ()
         return S.Zero, (self,)
 
     def as_coeff_Mul(self, rational=False):
         """Efficiently extract the coefficient of a product."""
-        if rational and not self.is_Rational:
-            return S.One, self
-        return (self, S.One) if self else (S.One, self)
+        if not rational:
+            return self, S.One
+        return S.One, self
 
     def as_coeff_Add(self, rational=False):
         """Efficiently extract the coefficient of a summation."""
@@ -4341,7 +4328,7 @@ class Catalan(NumberSymbol, metaclass=Singleton):
         elif issubclass(number_cls, Rational):
             return (Rational(9, 10, 1), S.One)
 
-    def _eval_rewrite_as_Sum(self, k_sym=None, symbols=None):
+    def _eval_rewrite_as_Sum(self, k_sym=None, symbols=None, **hints):
         if (k_sym is not None) or (symbols is not None):
             return self
         from .symbol import Dummy
@@ -4541,23 +4528,35 @@ def equal_valued(x, y):
 def _eval_is_eq(self, other): # noqa: F811
     return False
 
+
 def sympify_fractions(f):
     return Rational(f.numerator, f.denominator, 1)
 
 _sympy_converter[fractions.Fraction] = sympify_fractions
 
-if HAS_GMPY:
+
+if gmpy is not None:
+
     def sympify_mpz(x):
         return Integer(int(x))
 
-    # XXX: The sympify_mpq function here was never used because it is
-    # overridden by the other sympify_mpq function below. Maybe it should just
-    # be removed or maybe it should be used for something...
     def sympify_mpq(x):
         return Rational(int(x.numerator), int(x.denominator))
 
     _sympy_converter[type(gmpy.mpz(1))] = sympify_mpz
     _sympy_converter[type(gmpy.mpq(1, 2))] = sympify_mpq
+
+
+if flint is not None:
+
+    def sympify_fmpz(x):
+        return Integer(int(x))
+
+    def sympify_fmpq(x):
+        return Rational(int(x.numerator), int(x.denominator))
+
+    _sympy_converter[type(flint.fmpz(1))] = sympify_fmpz
+    _sympy_converter[type(flint.fmpq(1, 2))] = sympify_fmpq
 
 
 def sympify_mpmath_mpq(x):

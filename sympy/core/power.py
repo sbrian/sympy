@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Callable
-from math import log as _log, sqrt as _sqrt
 from itertools import product
 
 from .sympify import _sympify
@@ -14,33 +13,59 @@ from .logic import fuzzy_bool, fuzzy_not, fuzzy_and, fuzzy_or
 from .parameters import global_parameters
 from .relational import is_gt, is_lt
 from .kind import NumberKind, UndefinedKind
-from sympy.external.gmpy import HAS_GMPY, gmpy
+from sympy.external.gmpy import sqrt, iroot
 from sympy.utilities.iterables import sift
 from sympy.utilities.exceptions import sympy_deprecation_warning
 from sympy.utilities.misc import as_int
 from sympy.multipledispatch import Dispatcher
 
-from mpmath.libmp import sqrtrem as mpmath_sqrtrem
-
-
 
 def isqrt(n):
-    """Return the largest integer less than or equal to sqrt(n)."""
+    r""" Return the largest integer less than or equal to `\sqrt{n}`.
+
+    Parameters
+    ==========
+
+    n : non-negative integer
+
+    Returns
+    =======
+
+    int : `\left\lfloor\sqrt{n}\right\rfloor`
+
+    Raises
+    ======
+
+    ValueError
+        If n is negative.
+    TypeError
+        If n is of a type that cannot be compared to ``int``.
+        Therefore, a TypeError is raised for ``str``, but not for ``float``.
+
+    Examples
+    ========
+
+    >>> from sympy.core.power import isqrt
+    >>> isqrt(0)
+    0
+    >>> isqrt(9)
+    3
+    >>> isqrt(10)
+    3
+    >>> isqrt("30")
+    Traceback (most recent call last):
+        ...
+    TypeError: '<' not supported between instances of 'str' and 'int'
+    >>> from sympy.core.numbers import Rational
+    >>> isqrt(Rational(-1, 2))
+    Traceback (most recent call last):
+        ...
+    ValueError: n must be nonnegative
+
+    """
     if n < 0:
         raise ValueError("n must be nonnegative")
-    n = int(n)
-
-    # Fast path: with IEEE 754 binary64 floats and a correctly-rounded
-    # math.sqrt, int(math.sqrt(n)) works for any integer n satisfying 0 <= n <
-    # 4503599761588224 = 2**52 + 2**27. But Python doesn't guarantee either
-    # IEEE 754 format floats *or* correct rounding of math.sqrt, so check the
-    # answer and fall back to the slow method if necessary.
-    if n < 4503599761588224:
-        s = int(_sqrt(n))
-        if 0 <= n - s*s <= 2*s:
-            return s
-
-    return integer_nthroot(n, 2)[0]
+    return int(sqrt(int(n)))
 
 
 def integer_nthroot(y, n):
@@ -70,62 +95,8 @@ def integer_nthroot(y, n):
     sympy.ntheory.primetest.is_square
     integer_log
     """
-    y, n = as_int(y), as_int(n)
-    if y < 0:
-        raise ValueError("y must be nonnegative")
-    if n < 1:
-        raise ValueError("n must be positive")
-    if HAS_GMPY and n < 2**63:
-        # Currently it works only for n < 2**63, else it produces TypeError
-        # sympy issue: https://github.com/sympy/sympy/issues/18374
-        # gmpy2 issue: https://github.com/aleaxit/gmpy/issues/257
-        if HAS_GMPY >= 2:
-            x, t = gmpy.iroot(y, n)
-        else:
-            x, t = gmpy.root(y, n)
-        return as_int(x), bool(t)
-    return _integer_nthroot_python(y, n)
-
-def _integer_nthroot_python(y, n):
-    if y in (0, 1):
-        return y, True
-    if n == 1:
-        return y, True
-    if n == 2:
-        x, rem = mpmath_sqrtrem(y)
-        return int(x), not rem
-    if n >= y.bit_length():
-        return 1, False
-    # Get initial estimate for Newton's method. Care must be taken to
-    # avoid overflow
-    try:
-        guess = int(y**(1./n) + 0.5)
-    except OverflowError:
-        exp = _log(y, 2)/n
-        if exp > 53:
-            shift = int(exp - 53)
-            guess = int(2.0**(exp - shift) + 1) << shift
-        else:
-            guess = int(2.0**exp)
-    if guess > 2**50:
-        # Newton iteration
-        xprev, x = -1, guess
-        while 1:
-            t = x**(n - 1)
-            xprev, x = x, ((n - 1)*x + y//t)//n
-            if abs(x - xprev) < 2:
-                break
-    else:
-        x = guess
-    # Compensate
-    t = x**n
-    while t < y:
-        x += 1
-        t = x**n
-    while t > y:
-        x -= 1
-        t = x**n
-    return int(x), t == y  # int converts long to int if possible
+    x, b = iroot(as_int(y), as_int(n))
+    return int(x), b
 
 
 def integer_log(y, x):
@@ -1536,13 +1507,15 @@ class Pow(Expr):
         if base.is_zero or base.has(exp) or expo.has(exp):
             return base**expo
 
+        evaluate = expo.has(Symbol)
+
         if base.has(Symbol):
             # delay evaluation if expo is non symbolic
             # (as exp(x*log(5)) automatically reduces to x**5)
             if global_parameters.exp_is_pow:
-                return Pow(S.Exp1, log(base)*expo, evaluate=expo.has(Symbol))
+                return Pow(S.Exp1, log(base)*expo, evaluate=evaluate)
             else:
-                return exp(log(base)*expo, evaluate=expo.has(Symbol))
+                return exp(log(base)*expo, evaluate=evaluate)
 
         else:
             from sympy.functions.elementary.complexes import arg, Abs
@@ -1859,17 +1832,17 @@ class Pow(Expr):
         from sympy.functions.combinatorial.factorials import factorial
         return x**n/factorial(n)
 
-    def _eval_rewrite_as_sin(self, base, exp):
+    def _eval_rewrite_as_sin(self, base, exp, **hints):
         if self.base is S.Exp1:
             from sympy.functions.elementary.trigonometric import sin
             return sin(S.ImaginaryUnit*self.exp + S.Pi/2) - S.ImaginaryUnit*sin(S.ImaginaryUnit*self.exp)
 
-    def _eval_rewrite_as_cos(self, base, exp):
+    def _eval_rewrite_as_cos(self, base, exp, **hints):
         if self.base is S.Exp1:
             from sympy.functions.elementary.trigonometric import cos
             return cos(S.ImaginaryUnit*self.exp) + S.ImaginaryUnit*cos(S.ImaginaryUnit*self.exp + S.Pi/2)
 
-    def _eval_rewrite_as_tanh(self, base, exp):
+    def _eval_rewrite_as_tanh(self, base, exp, **hints):
         if self.base is S.Exp1:
             from sympy.functions.elementary.hyperbolic import tanh
             return (1 + tanh(self.exp/2))/(1 - tanh(self.exp/2))
