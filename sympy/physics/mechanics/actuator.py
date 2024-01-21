@@ -2,15 +2,12 @@
 
 from abc import ABC, abstractmethod
 
-from sympy.core.backend import S, sympify
-from sympy.physics.mechanics import (
-    PathwayBase,
-    PinJoint,
-    ReferenceFrame,
-    RigidBody,
-    Torque,
-    Vector,
-)
+from sympy import S, sympify
+from sympy.physics.mechanics.joint import PinJoint
+from sympy.physics.mechanics.loads import Torque
+from sympy.physics.mechanics.pathway import PathwayBase
+from sympy.physics.mechanics.rigidbody import RigidBody
+from sympy.physics.vector import ReferenceFrame, Vector
 
 
 __all__ = [
@@ -254,7 +251,7 @@ class ForceActuator(ActuatorBase):
         [(pA, c*Derivative(q(t), t)*N.x), (pB, - c*Derivative(q(t), t)*N.x)]
 
         """
-        return self.pathway.compute_loads(self.force)
+        return self.pathway.to_loads(self.force)
 
     def __repr__(self):
         """Representation of a ``ForceActuator``."""

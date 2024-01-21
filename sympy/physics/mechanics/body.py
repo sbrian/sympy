@@ -1,4 +1,4 @@
-from sympy.core.backend import Symbol
+from sympy import Symbol
 from sympy.physics.vector import Point, Vector, ReferenceFrame, Dyadic
 from sympy.physics.mechanics import RigidBody, Particle, Inertia
 from sympy.physics.mechanics.body_base import BodyBase
@@ -233,8 +233,8 @@ class Body(RigidBody, Particle):  # type: ignore
         Explanation
         ===========
 
-        Applies the force on self or equal and oppposite forces on
-        self and other body if both are given on the desried point on the bodies.
+        Applies the force on self or equal and opposite forces on
+        self and other body if both are given on the desired point on the bodies.
         The force applied on other body is taken opposite of self, i.e, -force.
 
         Parameters
@@ -336,7 +336,7 @@ class Body(RigidBody, Particle):  # type: ignore
         Explanation
         ===========
 
-        Applies the torque on self or equal and oppposite torquess on
+        Applies the torque on self or equal and opposite torques on
         self and other body if both are given.
         The torque applied on other body is taken opposite of self,
         i.e, -torque.
